@@ -3,46 +3,122 @@ import 'package:flutter/foundation.dart';
 import '../../../data/repositories/alert_repository.dart';
 import '../../../domain/models/stock_alert.dart';
 
-/// Turns the alerts from [AlertRepository] into what the alerts screen shows.
-///
-/// Keep these public signatures exactly: the hidden tests call them.
-/// Add private fields and helpers as you need.
 class AlertsViewModel extends ChangeNotifier {
   AlertsViewModel({required AlertRepository repository})
-      : _repository = repository;
+    : _repository = repository;
 
-  // ignore: unused_field
   final AlertRepository _repository;
 
-  /// True while [load] is in progress.
-  bool get loading => throw UnimplementedError('loading');
+  bool _loading = false;
+  List<StockAlert> _alerts = [];
+  final Set<Severity> _activeFilters = {};
+  String _query = '';
 
-  /// Fetches the alerts from the repository.
+  bool get loading => _loading;
+
+  Set<Severity> get activeFilters => Set.unmodifiable(_activeFilters);
+
   Future<void> load() async {
-    throw UnimplementedError('load');
+    _loading = true;
+    notifyListeners();
+
+    try {
+      _alerts = await _repository.fetchAlerts();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
-  /// Unmodifiable; filtered by severity and search query, then sorted.
-  List<StockAlert> get visibleAlerts =>
-      throw UnimplementedError('visibleAlerts');
+  List<StockAlert> get visibleAlerts {
+    final normalizedQuery = _normalize(_query);
 
-  /// The severities currently shown. Empty means "show all".
-  Set<Severity> get activeFilters => throw UnimplementedError('activeFilters');
+    final alerts = _alerts.where((alert) {
+      final matchesSeverity =
+          _activeFilters.isEmpty || _activeFilters.contains(alert.severity);
+
+      final matchesSearch =
+          normalizedQuery.isEmpty ||
+          _normalize(alert.medicineNameEn).contains(normalizedQuery) ||
+          _normalize(alert.medicineNameAr).contains(normalizedQuery);
+
+      return matchesSeverity && matchesSearch;
+    }).toList();
+
+    alerts.sort((a, b) {
+      // Unacknowledged alerts first.
+      if (a.acknowledged != b.acknowledged) {
+        return a.acknowledged ? 1 : -1;
+      }
+
+      // Critical, high, medium, low.
+      final severityCompare = a.severity.index.compareTo(b.severity.index);
+
+      if (severityCompare != 0) {
+        return severityCompare;
+      }
+
+      // Fewer days of cover first.
+      final daysCompare = a.daysOfCover.compareTo(b.daysOfCover);
+
+      if (daysCompare != 0) {
+        return daysCompare;
+      }
+
+      // Alphabetical English medicine name.
+      return a.medicineNameEn.toLowerCase().compareTo(
+        b.medicineNameEn.toLowerCase(),
+      );
+    });
+
+    return List.unmodifiable(alerts);
+  }
 
   void toggleFilter(Severity severity) {
-    throw UnimplementedError('toggleFilter');
+    if (_activeFilters.contains(severity)) {
+      _activeFilters.remove(severity);
+    } else {
+      _activeFilters.add(severity);
+    }
+
+    notifyListeners();
   }
 
   void setQuery(String query) {
-    throw UnimplementedError('setQuery');
+    if (_query == query) return;
+
+    _query = query;
+    notifyListeners();
   }
 
   Future<void> acknowledge(String id) async {
-    throw UnimplementedError('acknowledge');
+    final index = _alerts.indexWhere((alert) => alert.id == id);
+
+    if (index == -1 || _alerts[index].acknowledged) {
+      return;
+    }
+
+    await _repository.acknowledge(id);
+
+    _alerts[index] = _alerts[index].copyWith(acknowledged: true);
+
+    notifyListeners();
   }
 
-  /// Unacknowledged critical alerts among ALL loaded alerts, whatever the
-  /// current filters and search query.
-  int get unacknowledgedCriticalCount =>
-      throw UnimplementedError('unacknowledgedCriticalCount');
+  int get unacknowledgedCriticalCount {
+    return _alerts.where((alert) {
+      return alert.severity == Severity.critical && !alert.acknowledged;
+    }).length;
+  }
+
+  String _normalize(String text) {
+    return text
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[أإآ]'), 'ا')
+        .replaceAll('ة', 'ه')
+        .replaceAll('ى', 'ي')
+        .replaceAll('ـ', '')
+        .replaceAll(RegExp(r'[\u064B-\u0652]'), '');
+  }
 }

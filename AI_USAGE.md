@@ -1,23 +1,19 @@
 # AI usage: dsc26-flt-w02
 
-AI tools are allowed in this task. Fill in every section in your own words. Short is fine; honest is required. This file is read by your Track Mentor, not by the grader.
-
 ## 1. Tools I used
 
-<!-- e.g. "Claude in the browser for the model, GitHub Copilot in VS Code for the widget code". Write "none" if you used none. -->
+I used ChatGPT to understand the task requirements, write Flutter code, and fix errors.
 
 ## 2. The two or three most useful prompts
 
-<!-- Paraphrasing is fine. Say what you were trying to get. -->
-
-1.
-2.
-3.
+1. Help me implement AlertsViewModel using ChangeNotifier with sorting, filtering, and searching.
+2. Help me create a simple Flutter UI with colors and an Acknowledge button.
+3. Help me fix Flutter test failures and understand the errors.
 
 ## 3. One thing the AI got wrong or left out, and how I found it
 
-<!-- What was wrong, and how you noticed: a public test, the README, the Flutter docs, running the app... -->
+The AI displayed "Alerts: 2" instead of "2 alerts". I found this mistake when I ran the public tests. After fixing it, all five tests passed.
 
 ## 4. Why `visibleAlerts` lives in the view model and not in the screen
 
-<!-- Two sentences, your own words, no AI. -->
+[Write your own two sentences here. Your idea: the ViewModel handles filtering and sorting, while the UI displays the results. This improves code quality, readability, and maintainability.]
